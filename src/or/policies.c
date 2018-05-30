@@ -1267,6 +1267,11 @@ policies_parse_from_options(const or_options_t *options)
     ret = -1;
   if (parse_reachable_addresses() < 0)
     ret = -1;
+  if (!ret && (options->ReachableDirAddresses ||
+               options->ReachableAddresses)) {
+    append_exit_policy_string(&reachable_or_addr_policy, "reject *:*");
+    append_exit_policy_string(&reachable_dir_addr_policy, "reject *:*");
+  }
   return ret;
 }
 

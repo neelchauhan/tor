@@ -3642,30 +3642,6 @@ options_validate(or_options_t *old_options, or_options_t *options,
     }
   }
 
-  /* Terminate Reachable*Addresses with reject *
-   */
-  for (i=0; i<3; i++) {
-    config_line_t **linep =
-      (i==0) ? &options->ReachableAddresses :
-        (i==1) ? &options->ReachableORAddresses :
-                 &options->ReachableDirAddresses;
-    if (!*linep)
-      continue;
-    /* We need to end with a reject *:*, not an implicit accept *:* */
-    for (;;) {
-      linep = &((*linep)->next);
-      if (!*linep) {
-        *linep = tor_malloc_zero(sizeof(config_line_t));
-        (*linep)->key = tor_strdup(
-          (i==0) ?  "ReachableAddresses" :
-            (i==1) ? "ReachableORAddresses" :
-                     "ReachableDirAddresses");
-        (*linep)->value = tor_strdup("reject *:*");
-        break;
-      }
-    }
-  }
-
   if ((options->ReachableAddresses ||
        options->ReachableORAddresses ||
        options->ReachableDirAddresses ||
