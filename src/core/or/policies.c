@@ -992,9 +992,9 @@ fascist_firewall_choose_address_rs(const routerstatus_t *rs,
 }
 
 /** Like fascist_firewall_choose_address_base(), but takes in a smartlist
- * <b>lspecs</b> consisting of one or more link specifiers. We assume
- * fw_connection is FIREWALL_OR_CONNECTION as link specifiers cannot
- * contain DirPorts.
+ * <b>lspecs</b> consisting of one or more link specifiers. We compare
+ * addresses manually here as fascist_firewall_choose_address_base()
+ * doesn't always return addresses given from lspecs.
  *
  * We take in direct_conn to determine whether we connect directly. This
  * helps us determine whether to allow IPv6 as we can connect
@@ -1002,14 +1002,16 @@ fascist_firewall_choose_address_rs(const routerstatus_t *rs,
  */
 void
 fascist_firewall_choose_address_ls(const smartlist_t *lspecs,
-                                   int pref_only, tor_addr_port_t* ap,
-                                   int direct_conn)
+                                   tor_addr_port_t* ap, int direct_conn)
 {
   int have_v4 = 0, have_v6 = 0;
   uint16_t port_v4 = 0, port_v6 = 0;
   tor_addr_t addr_v4, addr_v6;
 
   tor_assert(ap);
+
+  tor_addr_make_null(&ap->addr, AF_UNSPEC);
+  ap->port = 0;
 
   tor_addr_make_null(&addr_v4, AF_INET);
   tor_addr_make_null(&addr_v6, AF_INET6);
@@ -1043,12 +1045,16 @@ fascist_firewall_choose_address_ls(const smartlist_t *lspecs,
    * ORPorts. */
   const or_options_t *options = get_options();
   int pref_ipv6 = fascist_firewall_prefer_ipv6_orport(options);
-  /* Assume that the DirPorts are zero as link specifiers only use ORPorts. */
-  fascist_firewall_choose_address_base(&addr_v4, port_v4, 0,
-                                       &addr_v6, port_v6, 0,
-                                       FIREWALL_OR_CONNECTION,
-                                       pref_only, pref_ipv6,
-                                       ap);
+
+  /* To avoid crashes with fascist_firewall_choose_address_base(), we choose
+   * the address manually. */
+  if (have_v6 && (pref_ipv6 || !have_v4)) {
+    tor_addr_copy(&ap->addr, &addr_v6);
+    ap->port = port_v6;
+  } else if (have_v4 && (!pref_ipv6 || !have_v6)) {
+    tor_addr_copy(&ap->addr, &addr_v4);
+    ap->port = port_v4;
+  }
 }
 
 /** Like fascist_firewall_choose_address_base(), but takes <b>node</b>, and

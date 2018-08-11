@@ -1691,9 +1691,6 @@ hs_get_extend_info_from_lspecs(const smartlist_t *lspecs,
   extend_info_t *info = NULL;
   tor_addr_port_t ap;
 
-  tor_addr_make_null(&ap.addr, AF_UNSPEC);
-  ap.port = 0;
-
   tor_assert(lspecs);
 
   SMARTLIST_FOREACH_BEGIN(lspecs, const link_specifier_t *, ls) {
@@ -1721,7 +1718,7 @@ hs_get_extend_info_from_lspecs(const smartlist_t *lspecs,
 
   /* Choose a preferred address first, but fall back to an allowed address.
    * Skip IPv6 if we're not direct as relays only extend via IPv4. */
-  fascist_firewall_choose_address_ls(lspecs, 0, &ap, direct_conn);
+  fascist_firewall_choose_address_ls(lspecs, &ap, direct_conn);
 
   /* Legacy ID is mandatory, and we require an IP address. */
   if (!tor_addr_port_is_valid_ap(&ap, 0) || !have_legacy_id) {
