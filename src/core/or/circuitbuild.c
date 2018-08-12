@@ -2398,15 +2398,11 @@ circuit_extend_to_new_exit(origin_circuit_t *circ, extend_info_t *exit_ei)
 
 /** Return the number of routers in <b>routers</b> that are currently up
  * and available for building circuits through.
- *
- * (Note that this function may overcount or undercount, if we have
- * descriptors that are not the type we would prefer to use for some
- * particular router. See bug #25885.)
  */
 MOCK_IMPL(STATIC int,
 count_acceptable_nodes, (smartlist_t *nodes))
 {
-  int num=0;
+  int direct = 0, indirect = 0;
 
   SMARTLIST_FOREACH_BEGIN(nodes, const node_t *, node) {
     //    log_debug(LD_CIRC,
@@ -2418,17 +2414,29 @@ count_acceptable_nodes, (smartlist_t *nodes))
     if (! node->is_valid)
 //      log_debug(LD_CIRC,"Nope, the directory says %d is not valid.",i);
       continue;
-    if (! node_has_any_descriptor(node))
+    /* If we can use the node, check if we can connect directly. */
+    if (node_has_preferred_descriptor(node, 1))
+      ++direct;
+    else if (node_has_preferred_descriptor(node, 0))
+      ++indirect;
+    else
       continue;
     /* The node has a descriptor, so we can just check the ntor key directly */
     if (!node_has_curve25519_onion_key(node))
       continue;
-    ++num;
   } SMARTLIST_FOREACH_END(node);
 
 //    log_debug(LD_CIRC,"I like %d. num_acceptable_routers now %d.",i, num);
 
-  return num;
+  /* If the number of guard nodes (direct) is greater than one, and the
+   * total number of guard and non-guard nodes (indirect) is greater than
+   * 3, return the route length. Else, return 0 to signify that we do not
+   * have a complete circuit.
+   *
+   * Keep in mind that this function can succeed if direct is greater than
+   * 1 but indirect isn't because guard nodes can also be middle or exit
+   * nodes if configured so on the relay side. */
+  return (direct >= 1) && (direct + indirect >= 3) ? direct + indirect : 0;
 }
 
 /** Add <b>new_hop</b> to the end of the doubly-linked-list <b>head_ptr</b>.
