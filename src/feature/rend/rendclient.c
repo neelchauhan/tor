@@ -350,7 +350,8 @@ rend_client_rendcirc_has_opened(origin_circuit_t *circ)
  * Called to close other intro circuits we launched in parallel.
  */
 static void
-rend_client_close_other_intros(const uint8_t *rend_pk_digest)
+rend_client_close_other_intros(const origin_circuit_t *circ,
+                               const uint8_t *rend_pk_digest)
 {
   /* abort parallel intro circs, if any */
   SMARTLIST_FOREACH_BEGIN(circuit_get_global_list(), circuit_t *, c) {
@@ -358,7 +359,24 @@ rend_client_close_other_intros(const uint8_t *rend_pk_digest)
         c->purpose == CIRCUIT_PURPOSE_C_INTRODUCE_ACK_WAIT) &&
         !c->marked_for_close && CIRCUIT_IS_ORIGIN(c)) {
       origin_circuit_t *oc = TO_ORIGIN_CIRCUIT(c);
-      if (oc->rend_data &&
+
+      /* Check if isolation bits match by looking over all the streams for
+       * <b>circ</b> and <b>oc</b>. */
+      int isolation_bits_match = 0;
+      for (edge_connection_t *ec_oc = oc->p_streams; ec_oc != NULL;
+           ec_oc = ec_oc->next_stream) {
+        for (edge_connection_t *ec_circ = circ->p_streams; ec_circ != NULL;
+             ec_circ = ec_circ->next_stream) {
+          if (EDGE_TO_ENTRY_CONN(ec_oc)->entry_cfg.isolation_flags ==
+              EDGE_TO_ENTRY_CONN(ec_circ)->entry_cfg.isolation_flags) {
+            isolation_bits_match = 1;
+            goto validate;
+          }
+        }
+      }
+
+ validate:
+      if (isolation_bits_match && oc->rend_data &&
           rend_circuit_pk_digest_eq(oc, rend_pk_digest)) {
         log_info(LD_REND|LD_CIRC, "Closing introduction circuit %d that we "
                  "built in parallel (Purpose %d).", oc->global_identifier,
@@ -409,8 +427,8 @@ rend_client_introduction_acked(origin_circuit_t *circ,
     circuit_mark_for_close(TO_CIRCUIT(circ), END_CIRC_REASON_FINISHED);
 
     /* close any other intros launched in parallel */
-    rend_client_close_other_intros(rend_data_get_pk_digest(circ->rend_data,
-                                                           NULL));
+    rend_client_close_other_intros(circ,
+      rend_data_get_pk_digest(circ->rend_data, NULL));
   } else {
     /* It's a NAK; the introduction point didn't relay our request. */
     circuit_change_purpose(TO_CIRCUIT(circ), CIRCUIT_PURPOSE_C_INTRODUCING);

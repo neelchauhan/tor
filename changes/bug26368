@@ -1,0 +1,6 @@
+  o Minor bugfixes (onion services):
+    - When an onion service introduction succeeds, close any circuits with
+      similar SOCKS isolation bits. Previously, we closed any circuits we
+      considered redundant. Fixes bug 26368; bugfix on 0.3.5.1-alpha. Patch
+      by Neel Chauhan.
+
