@@ -88,6 +88,9 @@ static const char *private_nets[] = {
   NULL
 };
 
+/** Time when we should clear IPv4/IPv6 failure entries. */
+#define IP_FAIL_CLEAR_TIME 60 * 60 * 24 * 7
+
 static int policies_parse_exit_policy_internal(
                                       config_line_t *cfg,
                                       smartlist_t **dest,
@@ -491,12 +494,25 @@ fascist_firewall_prefer_ipv6_impl(const or_options_t *options)
   return -1;
 }
 
-/* Choose whether we prefer IPv4 or IPv6 by randomly choosing an address
+/** Choose whether we prefer IPv4 or IPv6 by randomly choosing an address
  * family. Return 0 for IPv4, and 1 for IPv6. */
 static int
 fascist_firewall_rand_preferred_addr(void)
 {
   or_state_t *state = get_or_state();
+  time_t current_time = time(NULL);
+
+  /* Clear IPv4 and IPv6 failure entries if they are more than a week old. */
+  if (state->IPv4AutoFailTime &&
+      state->IPv4AutoFailTime <= current_time - IP_FAIL_CLEAR_TIME) {
+    state->IPv4AutoFail = 1;
+    state->IPv4AutoFailTime = 0;
+  }
+  if (state->IPv6AutoFailTime &&
+      state->IPv6AutoFailTime <= current_time - IP_FAIL_CLEAR_TIME) {
+    state->IPv6AutoFail = 1;
+    state->IPv6AutoFailTime = 0;
+  }
 
   if (state->IPv4AutoFail && !state->IPv6AutoFail) {
     /* If we fail IPv4 automatically, prefer IPv6. */
