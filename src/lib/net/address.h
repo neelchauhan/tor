@@ -226,6 +226,8 @@ MOCK_DECL(struct smartlist_t *,get_interface_address6_list,(int severity,
                                                      sa_family_t family,
                                                      int include_internal));
 
+int compute_tor_addr_prob(sa_family_t family);
+
 /** Flag to specify how to do a comparison between addresses.  In an "exact"
  * comparison, addresses are equivalent only if they are in the same family
  * with the same value.  In a "semantic" comparison, IPv4 addresses match all
@@ -293,6 +295,7 @@ void tor_addr_from_ipv6_bytes(tor_addr_t *dest, const char *bytes);
 void tor_addr_from_in6(tor_addr_t *dest, const struct in6_addr *in6);
 int tor_addr_is_null(const tor_addr_t *addr);
 int tor_addr_is_loopback(const tor_addr_t *addr);
+int tor_addr_is_local_link(const tor_addr_t *addr);
 
 int tor_addr_is_valid(const tor_addr_t *addr, int for_listening);
 int tor_addr_is_valid_ipv4n(uint32_t v4n_addr, int for_listening);

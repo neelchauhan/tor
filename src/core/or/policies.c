@@ -526,12 +526,15 @@ fascist_firewall_rand_preferred_addr(void)
     state->IPv4AutoFail = state->IPv6AutoFail = 0;
   }
 
-  int fail_sum = state->IPv4Fails + state->IPv6Fails;
+  int ip4_mult = compute_tor_addr_prob(AF_INET);
+  int ip6_mult = compute_tor_addr_prob(AF_INET6);
+
+  int fail_sum = state->IPv4Fails * ip6_mult + state->IPv6Fails * ip4_mult;
   int chosen_number = crypto_rand_int(fail_sum);
 
   /* Prefer IPv4 or IPv6 based on whether the random number is below the number
    * of IPv6 failures (prefer IPv6), or above (prefer IPv4). */
-  return (chosen_number < state->IPv6Fails);  
+  return (chosen_number < state->IPv6Fails * ip4_mult);
 }
 
 /** Do we prefer to connect to IPv6 ORPorts?

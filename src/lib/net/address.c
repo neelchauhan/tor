@@ -801,6 +801,32 @@ tor_addr_is_loopback(const tor_addr_t *addr)
   }
 }
 
+/** Return true iff <b>addr</b> is a local link address */
+int
+tor_addr_is_local_link(const tor_addr_t *addr)
+{
+  uint32_t iph6[1];
+
+  tor_assert(addr);
+  switch (tor_addr_family(addr)) {
+    case AF_INET6: {
+      /* fe80/10 - RFC4291 */
+      uint32_t *a32 = tor_addr_to_in6_addr32(addr);
+      iph6[0] = ntohl(a32[0]);
+      return (iph6[0] & 0xffc00000) == 0xfe800000;
+    }
+    case AF_INET:
+    case AF_UNSPEC:
+      return 0;
+      /* LCOV_EXCL_START */
+    default:
+      tor_fragile_assert();
+      return 0;
+      /* LCOV_EXCL_STOP */
+  }
+}
+
+
 /* Is addr valid?
  * Checks that addr is non-NULL and not tor_addr_is_null().
  * If for_listening is true, IPv4 addr 0.0.0.0 is allowed.
@@ -1679,6 +1705,37 @@ get_interface_address6_list,(int severity,
   }
 
   return addrs;
+}
+
+/** Calculate a factor on the probability that we should select a particular
+ * IP version based on our external and internal IP addresses. Takes in
+ * <b>family</b> to determine which IP version we should calculate for. */
+int
+compute_tor_addr_prob(sa_family_t family) {
+  smartlist_t *addrs = get_interface_address6_list(LOG_ERR, family, 1);
+  int factor = 1;
+
+  if (addrs) {
+    if (smartlist_len(addrs) == 0) goto done;
+
+    SMARTLIST_FOREACH_BEGIN(addrs, tor_addr_t *, a) {
+      if (!tor_addr_is_internal(a, 0)) {
+        /* If we have a public IP address, significantly increase our
+         * probability of choosing this address family. */
+        factor += 2;
+      } else { /* This is an internal IP address family. */
+        /* Skip on local link addresses. */
+        if (tor_addr_is_local_link(a))
+          continue;
+        /* Increase our probability somewhat on internal IP families. */
+        factor += 1;
+      }
+    } SMARTLIST_FOREACH_END(a);
+  }
+
+ done:
+  interface_address6_list_free(addrs);
+  return factor;
 }
 
 /* ======
