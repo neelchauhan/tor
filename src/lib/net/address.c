@@ -826,7 +826,6 @@ tor_addr_is_local_link(const tor_addr_t *addr)
   }
 }
 
-
 /* Is addr valid?
  * Checks that addr is non-NULL and not tor_addr_is_null().
  * If for_listening is true, IPv4 addr 0.0.0.0 is allowed.
@@ -1711,7 +1710,8 @@ get_interface_address6_list,(int severity,
  * IP version based on our external and internal IP addresses. Takes in
  * <b>family</b> to determine which IP version we should calculate for. */
 int
-compute_tor_addr_prob(sa_family_t family) {
+compute_tor_addr_prob(sa_family_t family)
+{
   smartlist_t *addrs = get_interface_address6_list(LOG_ERR, family, 1);
   int factor = 1;
 

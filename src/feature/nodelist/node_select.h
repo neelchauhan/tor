@@ -76,6 +76,8 @@ const node_t *node_sl_choose_by_bandwidth(const smartlist_t *sl,
 double frac_nodes_with_descriptors(const smartlist_t *sl,
                                    bandwidth_weight_rule_t rule,
                                    int for_direct_conn);
+int calc_frac_of_guard_with_ip_family(const smartlist_t *sl);
+double get_capable_guard_fraction(sa_family_t family);
 const node_t *router_choose_random_node(smartlist_t *excludedsmartlist,
                                         struct routerset_t *excludedset,
                                         router_crn_flags_t flags);
