@@ -527,9 +527,18 @@ fascist_firewall_rand_preferred_addr(void)
   }
 
   int ip4_mult = compute_tor_addr_prob(AF_INET);
+  if (get_capable_guard_fraction(AF_INET) > 0) {
+    ip4_mult *= (int) (get_capable_guard_fraction(AF_INET) * 100);
+  }
+
   int ip6_mult = compute_tor_addr_prob(AF_INET6);
+  if (get_capable_guard_fraction(AF_INET6) > 0) {
+    ip6_mult *= (int) (get_capable_guard_fraction(AF_INET6) * 100);
+  }
+
 
   int fail_sum = state->IPv4Fails * ip6_mult + state->IPv6Fails * ip4_mult;
+  log_warn(LD_BUG, "%d %f %d %f %d", ip4_mult, get_capable_guard_fraction(AF_INET), ip6_mult, get_capable_guard_fraction(AF_INET6), fail_sum);
   int chosen_number = crypto_rand_int(fail_sum);
 
   /* Prefer IPv4 or IPv6 based on whether the random number is below the number

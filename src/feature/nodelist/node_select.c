@@ -48,6 +48,15 @@ static const routerstatus_t *router_pick_dirserver_generic(
                               smartlist_t *sourcelist,
                               dirinfo_type_t type, int flags);
 
+/* Store the bandwidth amount of IPv4-only guards */
+static uint64_t ipv4_guard_bw = 0;
+
+/* Store the bandwidth amount of IPv6-only guards */
+static uint64_t ipv6_guard_bw = 0;
+
+/* Store the bandwidth amount of dual-stack guards */
+static uint64_t ds_guard_bw = 0;
+
 /** Try to find a running dirserver that supports operations of <b>type</b>.
  *
  * If there are no running dirservers in our routerlist and the
@@ -1106,4 +1115,104 @@ router_pick_trusteddirserver_impl(const smartlist_t *sourcelist,
   if (n_busy_out)
     *n_busy_out = n_busy;
   return result;
+}
+
+/** Given a list of guard nodes given in the smartlist <b>sl</b>, compute the
+ * weighted bandwidth for IPv4-capable guards if <b>include_v4</b> is set, and
+ * IPv6-capable guards if <b>include_v6</b> is set. Return 0 on success, -1 on
+ * failure. */
+int
+calc_frac_of_guard_with_ip_family(const smartlist_t *sl)
+{
+  uint64_t ipv4_weight = 0;
+  uint64_t ipv6_weight = 0;
+  uint64_t ds_weight = 0; /* dual stack weight. */
+
+  tor_assert(sl);
+
+  if (smartlist_len(sl) == 0) {
+    log_info(LD_CIRC, "Empty routerlist passed in to consensus weight guard "
+                      "bandwidth selection");
+    return -1;
+  }
+
+  SMARTLIST_FOREACH_BEGIN(sl, const node_t *, node) {
+    if (node_has_preferred_descriptor(node, 1)) {
+      unsigned long node_weight = 0;
+      int has_v4 = 0, has_v6 = 0;
+
+      if (node_is_bridge(node)) {
+        node_weight = 1;
+      } else if (node->rs && node->rs->has_bandwidth) {
+        node_weight = kb_to_bytes(node->rs->bandwidth_kb);
+      } else if (node->ri) {
+        node_weight = bridge_get_advertised_bandwidth_bounded(node->ri);
+      }
+
+      if (node_get_prim_addr_ipv4h(node)) {
+        has_v4 = 1;
+      }
+
+      if (node_has_ipv6_addr(node)) {
+        has_v6 = 1;
+      }
+
+      if (has_v4 && has_v6) {
+        ds_weight += node_weight;
+      } else if (has_v4 && !has_v6) {
+        ipv4_weight += node_weight;
+      } else if (has_v6 && !has_v4) {
+        ipv6_weight += node_weight;
+      }
+    }
+  } SMARTLIST_FOREACH_END(node);
+
+  ipv4_guard_bw = ipv4_weight;
+  ipv6_guard_bw = ipv6_weight;
+  ds_guard_bw = ds_weight;
+
+  return 0;
+}
+
+/** With struct <b>ip_family_guard_weight_t</b>, return the probability of
+ * IPv4-only, IPv6-only and dual-stack guard bandwidths with <b>include_v4</b>,
+ * <b>include_v6</b> and <b>include_ds</b> respectively. */
+static uint64_t
+get_guard_bandwidth_weight(int include_v4, int include_v6, int include_ds)
+{
+  uint64_t sum = 0;
+
+  if (include_v4) {
+    sum += ipv4_guard_bw;
+  }
+
+  if (include_v6) {
+    sum += ipv6_guard_bw;
+  }
+
+  if (include_ds) {
+    sum += ds_guard_bw;
+  }
+
+  return sum;
+}
+
+/** Return the probability of guards supporting the IP family <b>family</b>,
+ * or 0.0 if it's not IPv4 or IPv6. */
+double
+get_capable_guard_fraction(sa_family_t family)
+{
+  /* If we're not IPv4 or IPv6, return a fraction of 0.0. */
+  if (family != AF_INET && family != AF_INET6) {
+    return 0.0;
+  }
+
+  /* Do this to prevent dividing by zero. */
+  if (get_guard_bandwidth_weight(1, 1, 1) > 0) {
+    return
+      get_guard_bandwidth_weight(family == AF_INET, family == AF_INET6, 1) /
+      get_guard_bandwidth_weight(1, 1, 1);
+  } else {
+    return 0.0;
+  }
 }

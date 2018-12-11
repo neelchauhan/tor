@@ -169,6 +169,11 @@ addr_policy_result_t compare_tor_addr_to_short_policy(
                           const tor_addr_t *addr, uint16_t port,
                           const short_policy_t *policy);
 
+/* Functions are in node_select.c. Defined here so it can be used by
+ * policies.c. */
+int calc_frac_of_guard_with_ip_family(const smartlist_t *sl);
+double get_capable_guard_fraction(sa_family_t family);
+
 #ifdef POLICIES_PRIVATE
 STATIC void append_exit_policy_string(smartlist_t **policy, const char *more);
 STATIC int fascist_firewall_allows_address(const tor_addr_t *addr,

@@ -1132,6 +1132,13 @@ directory_info_has_arrived(time_t now, int from_cache, int suppress_logs)
   if (server_mode(options) && !net_is_disabled() && !from_cache &&
       (have_completed_a_circuit() || !any_predicted_circuits(now)))
    router_do_reachability_checks(1, 1);
+
+  /* Calculate the bandwidths of the guards based on IPv4 or IPv6. */
+  if (options->UseBridges) {
+    calc_frac_of_guard_with_ip_family(bridge_list_get());
+  } else {
+    calc_frac_of_guard_with_ip_family(nodelist_get_list());
+  }
 }
 
 /** Perform regular maintenance tasks for a single connection.  This
