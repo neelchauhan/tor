@@ -529,6 +529,13 @@ dirserv_set_router_is_running(routerinfo_t *router, time_t now)
   }
 
   node->is_running = answer;
+
+  /* If we have IPv6, assume we are reachable. This prevents a big where
+   * authorities don't see themselves as reachable via IPv6. */
+  if (router_is_me(router) && node->is_running &&
+      !tor_addr_is_null(&router->ipv6_addr)) {
+    node->last_reachable = now;
+  }
 }
 
 /** Extract status information from <b>ri</b> and from other authority
