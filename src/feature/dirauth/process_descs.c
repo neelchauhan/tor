@@ -221,8 +221,8 @@ dirserv_load_fingerprint_file(void)
     nickname = list->key; fingerprint = list->value;
     tor_strstrip(fingerprint, " "); /* remove spaces */
     int is_ed25519 = (strlen(fingerprint) == BASE64_DIGEST256_LEN);
-    if ((strlen(fingerprint) != HEX_DIGEST_LEN ||
-        base16_decode(digest_tmp, sizeof(digest_tmp),
+    int is_rsa = (strlen(fingerprint) == HEX_DIGEST_LEN);
+    if ((is_rsa || base16_decode(digest_tmp, sizeof(digest_tmp),
                       fingerprint, HEX_DIGEST_LEN) != sizeof(digest_tmp)) ||
         digest256_from_base64(digest256_tmp, fingerprint) < 0) {
       log_notice(LD_CONFIG,
