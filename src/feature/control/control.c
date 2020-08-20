@@ -490,6 +490,13 @@ connection_control_process_inbuf(control_connection_t *conn)
   }
   data_len = conn->incoming_cmd_cur_len;
 
+  /* Check if the incoming command is valid UTF-8. */
+  if (!string_is_utf8(conn->incoming_cmd, data_len)) {
+    control_write_endreply(conn, 500, "control command is not valid UTF-8");
+    connection_mark_for_close(TO_CONN(conn));
+    return 0;
+  }
+
   /* Okay, we now have a command sitting on conn->incoming_cmd. See if we
    * recognize it.
    */

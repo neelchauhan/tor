@@ -1,0 +1,5 @@
+  o Minor bugfixes (control port):
+    - When sending in a control port command, make sure we reject non-UTF-8
+      strings. This prevents erroneous bugs and potential vulnerabilities
+      related to parsing control port handlers. Fixes bug 40108; bugfix on
+      0.4.3.6. Patch by Neel Chauhan.
